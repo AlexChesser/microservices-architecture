@@ -26,17 +26,24 @@ In order to prove the functionality of redirected traffic we need a small number
 
 In order to demonstrate the viability of other languages and frameworks a dotnet `webapi` has also been included. The content of this one can be expected on the `http://localhost/api/weatherforecast` endpoint.
 
+### frontend
+
+This frontend is a simple `create-react-app` template which lives at the root URL of the hosted site. important to note that this particular container couts as the DEFAULT landing page for the whole app, however other containers with more specific routes can override this landing.
+
 ## Running the demo
 
 1. first ensure the containers ahve all been built using the command `docker compose build` from the root folder
 2. run the overall command `docker compose up -d` in order to launch the "cluster"
 3. verify that the system works as expected by loading the following urls
-    1. `http://localhost` you should see a not found page
+    1. `http://localhost` you should see a basic REACT page
     1. `http://localhost/nest` you should see "Hello World!"
     1. `http://localhost/api/weatherforecast` you should see a json result
 4. to view the traefik UI load `http://localhost:8080`
 
 ## TODO
 
-1. create a frontend layer within the same scope of the existing labels system
 1. refactor so the configuration of urls and endpoints is owned within the scope of the individual app subfolders as opposed to within the scope of a shared docker compose file.
+2. discover how to set up various containers within the cluster so they can reload on save/update - that way this setup can be used for a holistic development environment.
+1. figure out certificate signing & TLS
+1. add authentication / authorization service, figure out how to have other hosted services consume the internal auth services.
+1. add "service mesh" layer for observability, logging, etc...

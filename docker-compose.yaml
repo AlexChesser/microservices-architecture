@@ -43,3 +43,15 @@ services:
       - traefik.http.routers.weather.rule=PathPrefix(`/api/weatherforecast`)
       - traefik.http.routers.weather.middlewares=weather-stripprefix
       - traefik.http.middlewares.weather-stripprefix.stripprefix.prefixes=/api
+  homepage:
+    hostname: homepage
+    container_name: homepage
+    build:
+      context: ./services/homepage/
+      dockerfile: Dockerfile
+    image: homepage-react-app
+    ports:
+      - :3000
+    labels:
+      - traefik.http.routers.homepage.rule=PathPrefix(`/`)
+      - traefik.http.services.homepage.loadbalancer.server.port=3000
