@@ -14,6 +14,8 @@ This project currently has two major parts. The first is the `docker-compose.yam
 
 Within the docker compose yaml file there are currently two services configured. The first is a service known as `traefik` and the other is a locally produced demo API (our own arbirtrary code)
 
+![image](https://user-images.githubusercontent.com/355561/154352073-03ed7583-f9bb-4cae-b430-f9d47587f075.png)
+
 #### traefik
 
 This project is what is known as an API gateway. It is a server which monitors the cloud-hosting-environment for services and routes incoming traffic within the hosted application's network.
