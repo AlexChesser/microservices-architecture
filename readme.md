@@ -24,9 +24,19 @@ This allows a large number of servers running _within_ a container-network to al
 
 In order to prove the functionality of redirected traffic we need a small number of arbitrary services. This first sample was created using the default nestjs hello-world template with an added `dockerfile`
 
+In order to demonstrate the viability of other languages and frameworks a dotnet `webapi` has also been included. The content of this one can be expected on the `http://localhost/api/weatherforecast` endpoint.
+
 ## Running the demo
 
-1. build the container for the `hello-world-service` by running the docker command `docker build --tag hello-world` (run this from the root of the hello-world-service folder)
+1. first ensure the containers ahve all been built using the command `docker compose build` from the root folder
 2. run the overall command `docker compose up -d` in order to launch the "cluster"
-3. verify that the system works as expected by loading `http://localhost` (you should see the phrase "Hello World!" on page)
+3. verify that the system works as expected by loading the following urls
+    1. `http://localhost` you should see a not found page
+    1. `http://localhost/nest` you should see "Hello World!"
+    1. `http://localhost/api/weatherforecast` you should see a json result
 4. to view the traefik UI load `http://localhost:8080`
+
+## TODO
+
+1. create a frontend layer within the same scope of the existing labels system
+1. refactor so the configuration of urls and endpoints is owned within the scope of the individual app subfolders as opposed to within the scope of a shared docker compose file.

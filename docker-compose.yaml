@@ -18,6 +18,9 @@ services:
   hello-nest:
     hostname: hello-nest
     container_name: hello-nest
+    build:
+      context: ./services/hello-world-service
+      dockerfile: Dockerfile
     image: hello-nest
     ports:
       - :3000
@@ -26,3 +29,17 @@ services:
       - traefik.http.routers.hello-nest.rule=PathPrefix(`/nest`)
       - traefik.http.routers.hello-nest.middlewares=hello-nest-stripprefix
       - traefik.http.middlewares.hello-nest-stripprefix.stripprefix.prefixes=/nest
+  weather:
+    hostname: weather
+    container_name: weather
+    build:
+      context: ./services/dotnet-api/
+      dockerfile: Dockerfile
+    image: dotnet-api
+    ports:
+      - :5000
+    labels:
+      - traefik.http.services.weather.loadbalancer.server.port=5000
+      - traefik.http.routers.weather.rule=PathPrefix(`/api/weatherforecast`)
+      - traefik.http.routers.weather.middlewares=weather-stripprefix
+      - traefik.http.middlewares.weather-stripprefix.stripprefix.prefixes=/api
