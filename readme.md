@@ -53,3 +53,5 @@ This frontend is a simple `create-react-app` template which lives at the root UR
 1. add "service mesh" layer for observability, logging, etc...
 1. reimplement in kubernetes
 1. figure out how to implement "subnetworks" or pod groups within individual microservices so they can have their own data persistence layer and more complex services (perhaps some microservices want event streaming or whatever)
+1. figure out how to manage secrets / variable configurations per environment.
+1. investigate the use of terraform / pulumi? any advantage to moving away from docker compose to a more robust infrastructure as code deployment tool?
