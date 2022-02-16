@@ -44,6 +44,10 @@ This frontend is a simple `create-react-app` template which lives at the root UR
 
 1. refactor so the configuration of urls and endpoints is owned within the scope of the individual app subfolders as opposed to within the scope of a shared docker compose file.
 2. discover how to set up various containers within the cluster so they can reload on save/update - that way this setup can be used for a holistic development environment.
+1. figure out how to enable _different_ front end pages dynamically (current challenge, different CSS files if referenced from a "root url" would likely reference the content of a different container)
+    - possible that requiring frontend pages not use relative paths is the only way to go?
 1. figure out certificate signing & TLS
 1. add authentication / authorization service, figure out how to have other hosted services consume the internal auth services.
 1. add "service mesh" layer for observability, logging, etc...
+1. reimplement in kubernetes
+1. figure out how to implement "subnetworks" or pod groups within individual microservices so they can have their own data persistence layer and more complex services (perhaps some microservices want event streaming or whatever)
