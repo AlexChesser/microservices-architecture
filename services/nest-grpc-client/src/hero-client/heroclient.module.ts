@@ -9,4 +9,4 @@ import { HeroController } from './heroclient.controller';
   ],
   controllers: [HeroController],
 })
-export class HeroModule {}
+export class HeroClientModule {}
