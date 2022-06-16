@@ -3,6 +3,6 @@ import { Injectable } from '@nestjs/common';
 @Injectable()
 export class HelloWorldService {
   getHello(): string {
-    return 'Hello World!';
+    return 'This is the GRPC server!';
   }
 }

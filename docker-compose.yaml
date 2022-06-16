@@ -29,6 +29,36 @@ services:
       - traefik.http.routers.hello-nest.rule=PathPrefix(`/nest`)
       - traefik.http.routers.hello-nest.middlewares=hello-nest-stripprefix
       - traefik.http.middlewares.hello-nest-stripprefix.stripprefix.prefixes=/nest
+  grpc-server:
+    hostname: grpc-server
+    container_name: grpc-server
+    build:
+      context: ./services/nest-grpc-server
+      dockerfile: Dockerfile
+    image: nest-grpc-server
+    ports:
+      - :3000
+    entrypoint: ["node", "main.js"]
+    labels:
+      - traefik.http.services.grpc-server.loadbalancer.server.port=3000
+      - traefik.http.routers.grpc-server.rule=PathPrefix(`/grpc-server`)
+      - traefik.http.routers.grpc-server.middlewares=grpc-server-stripprefix
+      - traefik.http.middlewares.grpc-server-stripprefix.stripprefix.prefixes=/grpc-server
+  grpc-client:
+    hostname: grpc-client
+    container_name: grpc-client
+    build:
+      context: ./services/nest-grpc-client
+      dockerfile: Dockerfile
+    image: nest-grpc-client
+    ports:
+      - :3000
+    entrypoint: ["node", "main.js"]
+    labels:
+      - traefik.http.services.grpc-client.loadbalancer.server.port=3000
+      - traefik.http.routers.grpc-client.rule=PathPrefix(`/grpc-client`)
+      - traefik.http.routers.grpc-client.middlewares=grpc-client-stripprefix
+      - traefik.http.middlewares.grpc-client-stripprefix.stripprefix.prefixes=/grpc-client
   weather:
     hostname: weather
     container_name: weather
