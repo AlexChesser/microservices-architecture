@@ -5,8 +5,8 @@ export const grpcClientOptions: ClientOptions = {
   transport: Transport.GRPC,
   options: {
     package: 'hero',
-    url: 'grpc-server:3000',
-    protoPath: join(__dirname, './generated-proto/hero.proto'),
+    url: 'grpc-server:3001',
+    protoPath: join(__dirname, '../protos/hero.proto'),
     loader: {
       keepCase: true,
       longs: Number,

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule } from '@nestjs/microservices';
 import { grpcClientOptions } from '../grpc-client.options';
-import { HeroController } from './heroclient.controller';
+import { HeroController } from './hero.controller';
 
 @Module({
   imports: [
@@ -9,4 +9,4 @@ import { HeroController } from './heroclient.controller';
   ],
   controllers: [HeroController],
 })
-export class HeroClientModule {}
+export class HeroModule {}

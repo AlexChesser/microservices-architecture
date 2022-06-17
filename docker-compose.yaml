@@ -37,10 +37,10 @@ services:
       dockerfile: Dockerfile
     image: nest-grpc-server
     ports:
-      - :3000
+      - :3001
     entrypoint: ["node", "main.js"]
     labels:
-      - traefik.http.services.grpc-server.loadbalancer.server.port=3000
+      - traefik.http.services.grpc-server.loadbalancer.server.port=3001
       - traefik.http.routers.grpc-server.rule=PathPrefix(`/grpc-server`)
       - traefik.http.routers.grpc-server.middlewares=grpc-server-stripprefix
       - traefik.http.middlewares.grpc-server-stripprefix.stripprefix.prefixes=/grpc-server
@@ -50,15 +50,58 @@ services:
     build:
       context: ./services/nest-grpc-client
       dockerfile: Dockerfile
+      target: development
+    depends_on:
+      - grpc-server
     image: nest-grpc-client
+    volumes:
+      - ./services/nest-grpc-client:/usr/src/app
     ports:
       - :3000
-    entrypoint: ["node", "main.js"]
+    command: npm run start:dev
     labels:
       - traefik.http.services.grpc-client.loadbalancer.server.port=3000
       - traefik.http.routers.grpc-client.rule=PathPrefix(`/grpc-client`)
       - traefik.http.routers.grpc-client.middlewares=grpc-client-stripprefix
       - traefik.http.middlewares.grpc-client-stripprefix.stripprefix.prefixes=/grpc-client
+  grpc-ms1:
+    hostname: grpc-ms1
+    container_name: grpc-ms1
+    build:
+      context: ./services/grpc-ms1
+      dockerfile: Dockerfile
+    depends_on:
+      - grpc-server
+    image: grpc-ms1
+    volumes:
+      - ./services/grpc-ms1:/app
+    ports:
+      - :5000
+    command: npm run start
+    labels:
+      - traefik.http.services.grpc-ms1.loadbalancer.server.port=5000
+      - traefik.http.routers.grpc-ms1.rule=PathPrefix(`/grpc-ms1`)
+      - traefik.http.routers.grpc-ms1.middlewares=grpc-ms1-stripprefix
+      - traefik.http.middlewares.grpc-ms1-stripprefix.stripprefix.prefixes=/grpc-ms1
+  grpc-ms2:
+    hostname: grpc-ms2
+    container_name: grpc-ms2
+    build:
+      context: ./services/grpc-ms2
+      dockerfile: Dockerfile
+    depends_on:
+      - grpc-server
+    image: grpc-ms2
+    volumes:
+      - ./services/grpc-ms2:/app
+    ports:
+      - :3000
+    command: npm run start
+    labels:
+      - traefik.http.services.grpc-ms2.loadbalancer.server.port=3000
+      - traefik.http.routers.grpc-ms2.rule=PathPrefix(`/grpc-ms2`)
+      - traefik.http.routers.grpc-ms2.middlewares=grpc-ms2-stripprefix
+      - traefik.http.middlewares.grpc-ms2-stripprefix.stripprefix.prefixes=/grpc-ms2
   weather:
     hostname: weather
     container_name: weather

@@ -7,8 +7,8 @@
   "license": "UNLICENSED",
   "scripts": {
     "prebuild": "rimraf dist",
-    "build": "nest build && cp src/generated-proto/*.proto dist/generated-proto",
-    "protogen": "proto-loader-gen-types --longs=String --enums=String --defaults --oneofs --grpcLib=@grpc/grpc-js --outDir=src/generated-proto/ ../nest-grpc-server/src/hero/hero.proto && cp ../nest-grpc-server/src/hero/hero.proto ./src/generated-proto/hero.proto",
+    "build": "nest build",
+    "protogen": "proto-loader-gen-types --longs=String --enums=String --defaults --oneofs --grpcLib=@grpc/grpc-js --outDir=src/generated-proto/ ../nest-grpc-server/src/hero/hero.proto && mkdir -p ./protos && cp ../nest-grpc-server/src/hero/hero.proto ./protos",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
