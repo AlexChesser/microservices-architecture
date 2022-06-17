@@ -6,7 +6,7 @@ export const grpcClientOptions: ClientOptions = {
   options: {
     package: 'hero',
     url: 'grpc-server:3000',
-    protoPath: join(__dirname, '../../nest-grpc-server/src/hero/hero.proto'),
+    protoPath: join(__dirname, './generated-proto/hero.proto'),
     loader: {
       keepCase: true,
       longs: Number,
@@ -14,7 +14,6 @@ export const grpcClientOptions: ClientOptions = {
       defaults: false,
       arrays: true,
       objects: true,
-      includeDirs: [join(__dirname, '../../nest-grpc-server/src/hero/')],
     },
   },
 };
