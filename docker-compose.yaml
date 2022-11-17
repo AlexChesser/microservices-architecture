@@ -1,4 +1,30 @@
-version: '3'
+version: '3.9'
+
+x-kong-config: &kong-env
+  KONG_DATABASE: ${KONG_DATABASE:-postgres}
+  KONG_PG_DATABASE: ${KONG_PG_DATABASE:-kong}
+  KONG_PG_HOST: db
+  KONG_PG_USER: ${KONG_PG_USER:-kong}
+  KONG_PG_PASS: ${KONG_PG_PASS:-kong}
+  KONG_PG_PASSWORD_FILE: /run/secrets/kong_postgres_password
+
+secrets:
+  kong_postgres_password:
+    file: ./POSTGRES_PASSWORD
+
+volumes:
+  kong_data: {}
+  konga_data: {}
+  kong_prefix_vol:
+    driver_opts:
+     type: tmpfs
+     device: tmpfs
+  kong_tmp_vol:
+    driver_opts:
+     type: tmpfs
+     device: tmpfs
+  tyk: {}
+
 services:
   reverse-proxy:
     hostname: reverse-proxy
@@ -11,7 +37,7 @@ services:
       # The HTTP port
       - "80:80"
       # The Web UI (enabled by --api.insecure=true)
-      - "8080:8080"
+      # - "8080:8080"
     volumes:
       # So that Traefik can listen to the Docker events
       - /var/run/docker.sock:/var/run/docker.sock
@@ -44,64 +70,6 @@ services:
       - traefik.http.routers.grpc-server.rule=PathPrefix(`/grpc-server`)
       - traefik.http.routers.grpc-server.middlewares=grpc-server-stripprefix
       - traefik.http.middlewares.grpc-server-stripprefix.stripprefix.prefixes=/grpc-server
-  grpc-client:
-    hostname: grpc-client
-    container_name: grpc-client
-    build:
-      context: ./services/nest-grpc-client
-      dockerfile: Dockerfile
-      target: development
-    depends_on:
-      - grpc-server
-    image: nest-grpc-client
-    volumes:
-      - ./services/nest-grpc-client:/usr/src/app
-    ports:
-      - :3000
-    command: npm run start:dev
-    labels:
-      - traefik.http.services.grpc-client.loadbalancer.server.port=3000
-      - traefik.http.routers.grpc-client.rule=PathPrefix(`/grpc-client`)
-      - traefik.http.routers.grpc-client.middlewares=grpc-client-stripprefix
-      - traefik.http.middlewares.grpc-client-stripprefix.stripprefix.prefixes=/grpc-client
-  grpc-ms1:
-    hostname: grpc-ms1
-    container_name: grpc-ms1
-    build:
-      context: ./services/grpc-ms1
-      dockerfile: Dockerfile
-    depends_on:
-      - grpc-server
-    image: grpc-ms1
-    volumes:
-      - ./services/grpc-ms1:/app
-    ports:
-      - :5000
-    command: npm run start
-    labels:
-      - traefik.http.services.grpc-ms1.loadbalancer.server.port=5000
-      - traefik.http.routers.grpc-ms1.rule=PathPrefix(`/grpc-ms1`)
-      - traefik.http.routers.grpc-ms1.middlewares=grpc-ms1-stripprefix
-      - traefik.http.middlewares.grpc-ms1-stripprefix.stripprefix.prefixes=/grpc-ms1
-  grpc-ms2:
-    hostname: grpc-ms2
-    container_name: grpc-ms2
-    build:
-      context: ./services/grpc-ms2
-      dockerfile: Dockerfile
-    depends_on:
-      - grpc-server
-    image: grpc-ms2
-    volumes:
-      - ./services/grpc-ms2:/app
-    ports:
-      - :3000
-    command: npm run start
-    labels:
-      - traefik.http.services.grpc-ms2.loadbalancer.server.port=3000
-      - traefik.http.routers.grpc-ms2.rule=PathPrefix(`/grpc-ms2`)
-      - traefik.http.routers.grpc-ms2.middlewares=grpc-ms2-stripprefix
-      - traefik.http.middlewares.grpc-ms2-stripprefix.stripprefix.prefixes=/grpc-ms2
   weather:
     hostname: weather
     container_name: weather
@@ -128,3 +96,198 @@ services:
     labels:
       - traefik.http.routers.homepage.rule=PathPrefix(`/`)
       - traefik.http.services.homepage.loadbalancer.server.port=3000
+
+  kong-migrations:
+    image: "${KONG_DOCKER_TAG:-kong:latest}"
+    command: kong migrations bootstrap
+    depends_on:
+      - db
+    environment:
+      <<: *kong-env
+    secrets:
+      - kong_postgres_password
+    restart: on-failure
+
+  kong-migrations-up:
+    image: "${KONG_DOCKER_TAG:-kong:latest}"
+    command: kong migrations up && kong migrations finish
+    depends_on:
+      - db
+    environment:
+      <<: *kong-env
+    secrets:
+      - kong_postgres_password
+    restart: on-failure
+
+  kong:
+    image: "${KONG_DOCKER_TAG:-kong:latest}"
+    user: "${KONG_USER:-kong}"
+    environment:
+      <<: *kong-env
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_PROXY_LISTEN: "${KONG_PROXY_LISTEN:-0.0.0.0:8000}"
+      KONG_ADMIN_LISTEN: "${KONG_ADMIN_LISTEN:-0.0.0.0:8001}"
+      KONG_ADMIN_GUI_URL: http://localhost:8002
+      KONG_PORTAL_GUI_HOST: localhost:8003
+      KONG_PORTAL: on
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_PREFIX: ${KONG_PREFIX:-/var/run/kong}
+      KONG_DECLARATIVE_CONFIG: "/opt/kong/kong.yaml"
+    secrets:
+      - kong_postgres_password
+    ports:
+      # The following two environment variables default to an insecure value (0.0.0.0)
+      # according to the CIS Security test.
+      - "${KONG_INBOUND_PROXY_LISTEN:-0.0.0.0}:8000:8000/tcp"
+      - "${KONG_INBOUND_SSL_PROXY_LISTEN:-0.0.0.0}:8443:8443/tcp"
+      # Making them mandatory but undefined, like so would be backwards-breaking:
+      # - "${KONG_INBOUND_PROXY_LISTEN?Missing inbound proxy host}:8000:8000/tcp"
+      # - "${KONG_INBOUND_SSL_PROXY_LISTEN?Missing inbound proxy ssl host}:8443:8443/tcp"
+      # Alternative is deactivating check 5.13 in the security bench, if we consider Kong's own config to be enough security here
+      - "127.0.0.1:8001:8001/tcp"
+      - 8002:8002
+      - 8003:8003
+      - 8004:8004
+      - "127.0.0.1:8444:8444/tcp"
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    restart: on-failure:5
+    read_only: true
+    volumes:
+      - kong_prefix_vol:${KONG_PREFIX:-/var/run/kong}
+      - kong_tmp_vol:/tmp
+      - ./kong/config:/opt/kong
+    security_opt:
+      - no-new-privileges
+
+  db:
+    image: postgres:latest
+    # profiles: ["database"]
+    environment:
+      POSTGRES_DB: ${KONG_PG_DATABASE:-kong}
+      POSTGRES_USER: ${KONG_PG_USER:-kong}
+      POSTGRES_PASSWORD_FILE: /run/secrets/kong_postgres_password
+    secrets:
+      - kong_postgres_password
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${KONG_PG_USER:-kong}"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    restart: on-failure
+    stdin_open: true
+    tty: true
+    volumes:
+      - kong_data:/var/lib/postgresql/data
+
+  pgadmin:
+    container_name: pgadmin_container
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-pgadmin4@pgadmin.org}
+      PGADMIN_DEFAULT_PASSWORD: kong
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    # volumes:
+    #    - pgadmin:/var/lib/pgadmin
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    restart: unless-stopped
+
+  konga-prepare:
+    # profiles:
+    #   - konga
+    image: pantsel/konga:latest
+    command: "-c prepare -a postgres -u postgresql://${KONG_PG_USER:-kong}:${KONG_PG_PASS:-kong}@${KONG_PG_HOST:-konga-db}:5432/konga"
+    restart: on-failure
+    secrets:
+      - kong_postgres_password
+    depends_on:
+      - db
+    volumes:
+      - kong_data:/var/lib/postgresql/data
+
+  konga-db:
+    image: postgres:9.5
+    # profiles: ["database"]
+    environment:
+      POSTGRES_DB: ${KONG_PG_DATABASE:-kong}
+      POSTGRES_USER: ${KONG_PG_USER:-kong}
+      POSTGRES_PASSWORD_FILE: /run/secrets/kong_postgres_password
+    secrets:
+      - kong_postgres_password
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${KONG_PG_USER:-kong}"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    restart: on-failure
+    stdin_open: true
+    tty: true
+    volumes:
+      - konga_data:/var/lib/postgresql/data
+
+  konga:
+    # profiles:
+    #   - konga
+    image: pantsel/konga:next
+    restart: on-failure
+    secrets:
+      - kong_postgres_password
+    environment:
+      DB_ADAPTER: postgres
+      DB_HOST: konga-db
+      DB_USER: ${KONG_PG_USER:-kong}
+      DB_PASSWORD: ${KONG_PG_PASS:-kong}
+      DB_DATABASE: konga
+      NODE_ENV: development
+      KONGA_TOKEN_SECRET: some-secret-token
+      KONGA_ENV: development
+    depends_on:
+      - db
+    ports:
+      - "1337:1337"
+
+  tyk-redis:
+    image: redis:6.2.7-alpine
+    ports:
+      - 6379:6379
+
+  tyk-mongo:
+    image: mongo:4.0
+    container_name: tyk-mongo
+    command: ["mongod", "--smallfiles"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./tyk/db-data:/data/db
+
+  tyk-gateway:
+    image: docker.tyk.io/tyk-gateway/tyk-gateway:v4.1.0
+    ports:
+      - 8080:8080
+    volumes:
+      - ./tyk/tyk.standalone.conf:/opt/tyk-gateway/tyk.conf
+      - ./tyk/apps:/opt/tyk-gateway/apps
+      - ./tyk/middleware:/opt/tyk-gateway/middleware
+      - ./tyk/certs:/opt/tyk-gateway/certs
+    environment:
+      - TYK_GW_SECRET=foo
+    depends_on:
+      - tyk-redis
+
+  tyk-dashboard:
+    image: tykio/tyk-dashboard:v4.2.3
+    container_name: tyk-dashboard
+    environment:
+      - TYK_DB_LICENSEKEY=${TYK_DB_LICENSEKEY:-eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhbGxvd2VkX25vZGVzIjoiZGUxNWM0NGMtZGFhZS00OTkzLTUzNTQtMWM2ZDNiYjI5ZjcyLGIwM2VhMDk2LTcyMzMtNDljMy03NzY5LTZhNDNiODExZjkzOCwxZjRkODZmOS05YjFmLTRlZmMtN2JmYS0wY2MxZjNmMTUxZDQsMDIyMjg1NmItZTFiNC00YzkwLTRmYzAtNWQwMzgzMDkwN2M1LGMzYmQyZmQ0LWFjYTEtNDdkOS03ZTAyLTVkM2MzZTlkNTYwZiIsImV4cCI6MTY2OTkxMzYwMSwiaWF0IjoxNjY4NzA0MDAxLCJvd25lciI6IjYzNzY2NzAxNDJkY2YxMDAwMTRjYWVjNSIsInNjb3BlIjoidHJhY2sscmJhYyxtdWx0aV90ZWFtLHVkZyxncmFwaCxmZWRlcmF0aW9uIiwidiI6IjIifQ.uin2VwocQzSMJ0fM0S8JUrJDVb1yvbVxCltz7HRaKNj5ZwIKPp_5s7rx_SLaryDkr4_v_RfRlfNZuK9J0Y8Z2OSkN_foRU2CyxowuO5WBBkMyPG3Hn2eNFInJsQEjsT-oEsAL9fCiBYpq2EVjhHj8QNN6I9akxHkpSfmR7npNeknyi5Mxdv53wvTfTkvgNCRBiU_NtwgsPUon8L7i18nP1wFP0lFE9-_pFs3IM0qGJ0G6LeBR3g8eb9S8aUPJBIV7ukmS-H7AarXl47qBxp3emMLAk7BI-uP2wtPeFeCQreXa47xpeaKTuuEw04uBtwdzuEhSbS_xGsiGxNydtePfw}
+      - TYK_DB_STORAGE_MAIN_TYPE=mongo
+      - TYK_DB_STORAGE_MAIN_CONNECTIONSTRING=mongodb://tyk-mongo:27017/tyk_analytics
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./tyk/confs/tyk_analytics.env
