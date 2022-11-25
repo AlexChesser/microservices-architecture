@@ -3,7 +3,7 @@ version: '3.9'
 x-kong-config: &kong-env
   KONG_DATABASE: ${KONG_DATABASE:-postgres}
   KONG_PG_DATABASE: ${KONG_PG_DATABASE:-kong}
-  KONG_PG_HOST: db
+  KONG_PG_HOST: kong-db
   KONG_PG_USER: ${KONG_PG_USER:-kong}
   KONG_PG_PASS: ${KONG_PG_PASS:-kong}
   KONG_PG_PASSWORD_FILE: /run/secrets/kong_postgres_password
@@ -26,6 +26,7 @@ volumes:
   tyk: {}
 
 services:
+#REGION Generic / Sample services
   reverse-proxy:
     hostname: reverse-proxy
     container_name: reverse-proxy
@@ -97,11 +98,15 @@ services:
       - traefik.http.routers.homepage.rule=PathPrefix(`/`)
       - traefik.http.services.homepage.loadbalancer.server.port=3000
 
+#END Generic / Sample services
+
+# REGION KONG
+
   kong-migrations:
     image: "${KONG_DOCKER_TAG:-kong:latest}"
     command: kong migrations bootstrap
     depends_on:
-      - db
+      - kong-db
     environment:
       <<: *kong-env
     secrets:
@@ -112,12 +117,32 @@ services:
     image: "${KONG_DOCKER_TAG:-kong:latest}"
     command: kong migrations up && kong migrations finish
     depends_on:
-      - db
+      - kong-db
     environment:
       <<: *kong-env
     secrets:
       - kong_postgres_password
     restart: on-failure
+
+  kong-db:
+    image: postgres:latest
+    # profiles: ["database"]
+    environment:
+      POSTGRES_db: ${KONG_PG_DATABASE:-kong}
+      POSTGRES_USER: ${KONG_PG_USER:-kong}
+      POSTGRES_PASSWORD_FILE: /run/secrets/kong_postgres_password
+    secrets:
+      - kong_postgres_password
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${KONG_PG_USER:-kong}"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    restart: on-failure
+    stdin_open: true
+    tty: true
+    volumes:
+      - kong_data:/var/lib/postgresql/data
 
   kong:
     image: "${KONG_DOCKER_TAG:-kong:latest}"
@@ -165,25 +190,9 @@ services:
     security_opt:
       - no-new-privileges
 
-  db:
-    image: postgres:latest
-    # profiles: ["database"]
-    environment:
-      POSTGRES_DB: ${KONG_PG_DATABASE:-kong}
-      POSTGRES_USER: ${KONG_PG_USER:-kong}
-      POSTGRES_PASSWORD_FILE: /run/secrets/kong_postgres_password
-    secrets:
-      - kong_postgres_password
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${KONG_PG_USER:-kong}"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-    restart: on-failure
-    stdin_open: true
-    tty: true
-    volumes:
-      - kong_data:/var/lib/postgresql/data
+# END KONG
+
+# REGION KONGA
 
   pgadmin:
     container_name: pgadmin_container
@@ -207,7 +216,7 @@ services:
     secrets:
       - kong_postgres_password
     depends_on:
-      - db
+      - kong-db
     volumes:
       - kong_data:/var/lib/postgresql/data
 
@@ -248,9 +257,13 @@ services:
       KONGA_TOKEN_SECRET: some-secret-token
       KONGA_ENV: development
     depends_on:
-      - db
+      - kong-db
     ports:
       - "1337:1337"
+
+# END KONGA
+
+# REGION TYK
 
   tyk-redis:
     image: redis:6.2.7-alpine
@@ -291,3 +304,5 @@ services:
       - "3000:3000"
     env_file:
       - ./tyk/confs/tyk_analytics.env
+
+# END TYK
